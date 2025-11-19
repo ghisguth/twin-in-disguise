@@ -24,10 +24,10 @@ Claude Code and most Claude-compatible tools require HTTPS connections for secur
 
 1. Get the Docker image running:
    ```bash
-   # Set your Gemini API key
-   export GEMINI_API_KEY="your-api-key-here"
+   # Using the pre-built public image
+   docker run -d -p 8080:8080 -e GEMINI_API_KEY="your-api-key-here" savaki/twin-in-disguise
 
-   # Run with docker-compose
+   # Or using docker-compose (requires cloning the repo)
    docker-compose up -d
    ```
 
@@ -69,6 +69,15 @@ You're now ready to use Gemini models with Claude Code in that terminal!
 - For remote access: ngrok or similar tunneling service (see [HTTPS Setup](#https-setup) below)
 
 ### Option 1: Docker (Recommended)
+
+**Using the pre-built image:**
+
+```bash
+# Pull and run the public image
+docker run -p 8080:8080 -e GEMINI_API_KEY="your-api-key-here" savaki/twin-in-disguise
+```
+
+**Building from source:**
 
 ```bash
 # Clone the repository
@@ -287,6 +296,22 @@ While other Gemini models may work, the primary design focus is on Gemini 3's un
 Useful Docker commands for managing the proxy:
 
 ```bash
+# Run the pre-built public image
+docker run -d -p 8080:8080 -e GEMINI_API_KEY="your-key" savaki/twin-in-disguise
+
+# View logs (replace <container-id> with actual container ID from `docker ps`)
+docker logs -f <container-id>
+
+# Stop a running container
+docker stop <container-id>
+
+# Run with custom port
+docker run -d -p 3000:3000 -e GEMINI_API_KEY="your-key" -e PORT=3000 savaki/twin-in-disguise
+
+# Enable debug logging
+docker run -d -p 8080:8080 -e GEMINI_API_KEY="your-key" -e DEBUG=true savaki/twin-in-disguise
+
+# Using docker-compose (requires cloning the repo)
 # Start the server in detached mode
 docker-compose up -d
 
@@ -299,23 +324,17 @@ docker-compose down
 # Rebuild the image after code changes
 docker-compose build
 
-# Build for specific platform (Intel/AMD64)
-docker build --platform linux/amd64 -t twin-in-disguise .
-
-# Build for ARM64/Apple Silicon
-docker build --platform linux/arm64 -t twin-in-disguise .
-
 # Restart the server
 docker-compose restart
 
 # Check container status
 docker-compose ps
 
-# Run with custom port
-docker run -p 3000:3000 -e GEMINI_API_KEY="your-key" -e PORT=3000 twin-in-disguise
+# Build for specific platform (Intel/AMD64)
+docker build --platform linux/amd64 -t twin-in-disguise .
 
-# Enable debug logging
-docker run -p 8080:8080 -e GEMINI_API_KEY="your-key" -e DEBUG=true twin-in-disguise
+# Build for ARM64/Apple Silicon
+docker build --platform linux/arm64 -t twin-in-disguise .
 ```
 
 ## Limitations
