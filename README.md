@@ -33,11 +33,12 @@ Claude Code and most Claude-compatible tools require HTTPS connections for secur
    # Use the HTTPS URL from your tunnel service
    export ANTHROPIC_BASE_URL=https://your-tunnel-url  # e.g., https://abc123.ngrok.io
    export ANTHROPIC_AUTH_TOKEN=test
-   export ANTHROPIC_MODEL="gemini-3-pro-preview"
+   export ANTHROPIC_MODEL="opus" # will use gemini-3-pro-preview by default
+
    export ANTHROPIC_DEFAULT_OPUS_MODEL="gemini-3-pro-preview"
-   export ANTHROPIC_DEFAULT_SONNET_MODEL="gemini-3-pro-preview"
-   export ANTHROPIC_DEFAULT_HAIKU_MODEL="gemini-2.0-flash"
-   export CLAUDE_CODE_SUBAGENT_MODEL="gemini-3-pro-preview"
+   export ANTHROPIC_DEFAULT_SONNET_MODEL="gemini-3-flash-preview"
+   export ANTHROPIC_DEFAULT_HAIKU_MODEL="gemini-2.5-flash-lite"
+   export CLAUDE_CODE_SUBAGENT_MODEL="gemini-3-flash-preview"
    ```
 
 You're now ready to use Gemini models with Claude Code in that terminal!
@@ -106,7 +107,9 @@ export GEMINI_API_KEY="your-api-key-here"
 
 ### HTTPS Setup
 
-Most Claude-compatible tools (including Claude Code) require HTTPS connections. Since the proxy runs on localhost, you'll need to tunnel it through HTTPS:
+Most Claude-compatible tools (including Claude Code) require HTTPS connections. You can either use a tunneling service or the built-in local SSL proxy.
+
+**Option 1: Tunneling Service (e.g. ngrok)**
 
 **With Docker:**
 
@@ -142,6 +145,44 @@ Most Claude-compatible tools (including Claude Code) require HTTPS connections. 
    export ANTHROPIC_BASE_URL=https://abc123.ngrok.io
    ```
 
+**Option 2: Local SSL (Docker Only)**
+
+Use the provided `ssl` profile to run a local Nginx proxy with a self-signed certificate on port 11443.
+
+1. **Generate Certificates**
+
+   You must generate a certificate for `localhost` and place it in the `ssl/` directory.
+
+   **If you have .NET installed (Recommended):**
+   This method automatically trusts the certificate on your system.
+
+   ```bash
+   mkdir -p ssl
+   dotnet dev-certs https --trust --export-path="./ssl/server.crt" --format=pem --no-password --verbose
+   ```
+
+   *Note: This command generates both `server.crt` and `server.key`.*
+
+   **Using OpenSSL:**
+   ```bash
+   mkdir -p ssl
+   openssl req -x509 -newkey rsa:4096 -keyout ssl/server.key -out ssl/server.crt -days 365 -nodes -subj "/CN=localhost"
+   ```
+
+2. **Start with the SSL profile**
+   ```bash
+   docker compose --profile ssl up -d
+   ```
+
+3. **Configure Environment**
+   Set the base URL and ensure Node.js trusts your local certificate. This environment variable must point to the **absolute path** of the certificate file on your host machine (where you ran the certificate generation commands).
+
+   ```bash
+   # In the root of the twin-in-disguise repository:
+   export ANTHROPIC_BASE_URL=https://localhost:11443
+   export NODE_EXTRA_CA_CERTS="$(pwd)/ssl/server.crt"
+   ```
+
 ### Environment Variables Reference
 
 All environment variables needed for Claude Code:
@@ -155,11 +196,11 @@ export ANTHROPIC_BASE_URL=https://your-tunnel-url  # HTTPS URL from ngrok, Cloud
 export ANTHROPIC_AUTH_TOKEN=test  # Any value works, required but not validated
 
 # Model configuration
-export ANTHROPIC_MODEL="gemini-3-pro-preview"
+export ANTHROPIC_MODEL="opus"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="gemini-3-pro-preview"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="gemini-3-pro-preview"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="gemini-2.0-flash"
-export CLAUDE_CODE_SUBAGENT_MODEL="gemini-3-pro-preview"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="gemini-3-flash-preview"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="gemini-2.5-flash-lite"
+export CLAUDE_CODE_SUBAGENT_MODEL="gemini-3-flash-preview"
 ```
 
 Set these in your terminal session before running Claude Code.
@@ -256,6 +297,8 @@ When Gemini responds:
 This proxy is designed for Gemini 3 models with thinking capabilities:
 
 - `gemini-3-pro-preview` - Gemini 3 Pro model with extended thinking
+- `gemini-3-flash-preview` - Gemini 3 Flash model (recommended default)
+- `gemini-2.5-flash-lite` - Ultra-fast, lightweight model
 - `gemini-2.0-flash` - Fast model for subagents and quick tasks
 
 While other Gemini models may work, the primary design focus is on Gemini 3's unique capabilities.
