@@ -236,7 +236,10 @@ func CleanSchemaForGemini(schema map[string]interface{}) map[string]interface{} 
 
 	for key, value := range schema {
 		// Skip fields that Gemini doesn't support
-		if key == types.SchemaFieldDollarSchema || key == types.SchemaFieldAdditionalProperties {
+		if key == types.SchemaFieldDollarSchema ||
+			key == types.SchemaFieldAdditionalProperties ||
+			key == types.SchemaFieldExclusiveMinimum ||
+			key == types.SchemaFieldExclusiveMaximum {
 			continue
 		}
 

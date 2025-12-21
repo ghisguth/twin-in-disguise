@@ -45,6 +45,8 @@ const (
 	SchemaFieldItems                = "items"
 	SchemaFieldDollarSchema         = "$schema"
 	SchemaFieldAdditionalProperties = "additionalProperties"
+	SchemaFieldExclusiveMinimum     = "exclusiveMinimum"
+	SchemaFieldExclusiveMaximum     = "exclusiveMaximum"
 )
 
 // JSON Schema type values
