@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/generative-ai-go/genai"
@@ -299,5 +300,121 @@ func TestIntegration_HandleMessagesDebugMode(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestIntegration_PropertyNamesIssue(t *testing.T) {
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		t.Skip("Skipping integration test: GEMINI_API_KEY not set")
+	}
+
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	srv := NewWithAPIKey(client, apiKey)
+
+	// This request includes a tool with "propertyNames" in its schema,
+	// which previously caused a 400 error from Gemini API.
+	request := types.AnthropicRequest{
+		Model: "gemini-2.0-flash",
+		Tools: []types.AnthropicTool{
+			{
+				Name:        "test_tool_with_propertyNames",
+				Description: "A test tool",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"param1": map[string]interface{}{
+							"type": "string",
+							"propertyNames": map[string]interface{}{
+								"pattern": "^[A-Z]",
+							},
+						},
+					},
+				},
+			},
+		},
+		Messages: []types.AnthropicMessage{
+			{
+				Role: "user",
+				Content: []types.AnthropicContentBlock{
+					{Type: "text", Text: "Hello"},
+				},
+			},
+		},
+		MaxTokens: 10,
+	}
+
+	// This should NOT fail with "Unknown name "propertyNames""
+	_, err = srv.generateContentWithHTTP(ctx, request.Model, &request)
+	if err != nil {
+		t.Errorf("generateContentWithHTTP failed: %v", err)
+	}
+}
+
+func TestIntegration_Streaming(t *testing.T) {
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		t.Skip("Skipping live test: GEMINI_API_KEY not set")
+	}
+
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		t.Fatalf("failed to create Gemini client: %v", err)
+	}
+	defer client.Close()
+
+	srv := NewWithAPIKey(client, apiKey)
+
+	request := types.AnthropicRequest{
+		Model: "gemini-2.0-flash",
+		Messages: []types.AnthropicMessage{
+			{
+				Role: "user",
+				Content: []types.AnthropicContentBlock{
+					{Type: "text", Text: "Say 'hello'"},
+				},
+			},
+		},
+		MaxTokens: 10,
+		Stream:    true,
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("failed to marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	srv.HandleMessages(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		return
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "text/event-stream" {
+		t.Errorf("expected Content-Type text/event-stream, got %s", contentType)
+	}
+
+	responseBody := w.Body.String()
+	if !strings.Contains(responseBody, "message_start") {
+		t.Error("expected message_start event")
+	}
+	if !strings.Contains(responseBody, "content_block_delta") {
+		t.Error("expected content_block_delta event")
+	}
+	if !strings.Contains(responseBody, "message_stop") {
+		t.Error("expected message_stop event")
 	}
 }

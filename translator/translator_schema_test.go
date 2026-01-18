@@ -47,6 +47,26 @@ func TestCleanSchemaForGemini(t *testing.T) {
 			},
 		},
 		{
+			name: "removes propertyNames",
+			input: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name": map[string]interface{}{
+						"type":          "string",
+						"propertyNames": map[string]interface{}{"pattern": "^[A-Z]"},
+					},
+				},
+			},
+			expected: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+		},
+		{
 			name: "recursively removes from nested objects",
 			input: map[string]interface{}{
 				"type": "object",

@@ -112,7 +112,11 @@ func (s *Server) HandleMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send response
-	respondJSON(w, http.StatusOK, anthropicResp)
+	if anthropicReq.Stream {
+		respondStream(w, anthropicResp)
+	} else {
+		respondJSON(w, http.StatusOK, anthropicResp)
+	}
 }
 
 // injectThoughtSignatures injects cached thought signatures into tool_use blocks.
