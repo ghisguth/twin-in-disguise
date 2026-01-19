@@ -238,6 +238,7 @@ func CleanSchemaForGemini(schema map[string]interface{}) map[string]interface{} 
 		// Skip fields that Gemini doesn't support
 		if key == types.SchemaFieldDollarSchema ||
 			key == types.SchemaFieldAdditionalProperties ||
+			key == types.SchemaFieldPropertyNames ||
 			key == types.SchemaFieldExclusiveMinimum ||
 			key == types.SchemaFieldExclusiveMaximum {
 			continue
@@ -359,6 +360,14 @@ func ToAnthropicResponse(resp *genai.GenerateContentResponse, model string) (*ty
 		// Map stop reason
 		if candidate.FinishReason != 0 {
 			anthropicResp.StopReason = types.StopReasonEndTurn
+
+			// If content is empty but we have a finish reason (e.g. SAFETY), add a fallback message
+			if len(anthropicResp.Content) == 0 {
+				anthropicResp.Content = append(anthropicResp.Content, types.AnthropicContentBlock{
+					Type: types.ContentTypeText,
+					Text: fmt.Sprintf("[Gemini Refusal: %s]", candidate.FinishReason),
+				})
+			}
 		}
 	}
 
@@ -367,6 +376,17 @@ func ToAnthropicResponse(resp *genai.GenerateContentResponse, model string) (*ty
 		anthropicResp.Usage = types.AnthropicUsage{
 			InputTokens:  int(resp.UsageMetadata.PromptTokenCount),
 			OutputTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+		}
+	}
+
+	// Ensure we never return empty content
+	if len(anthropicResp.Content) == 0 {
+		anthropicResp.Content = append(anthropicResp.Content, types.AnthropicContentBlock{
+			Type: types.ContentTypeText,
+			Text: "[Gemini: Empty Response]",
+		})
+		if anthropicResp.StopReason == "" {
+			anthropicResp.StopReason = types.StopReasonEndTurn
 		}
 	}
 
@@ -443,6 +463,14 @@ func ToAnthropicResponseFromCustom(resp *GenerateContentResponse, model string) 
 		// Map stop reason
 		if candidate.FinishReason != "" {
 			anthropicResp.StopReason = types.StopReasonEndTurn
+
+			// If content is empty but we have a finish reason (e.g. SAFETY), add a fallback message
+			if len(anthropicResp.Content) == 0 {
+				anthropicResp.Content = append(anthropicResp.Content, types.AnthropicContentBlock{
+					Type: types.ContentTypeText,
+					Text: fmt.Sprintf("[Gemini Refusal: %s]", candidate.FinishReason),
+				})
+			}
 		}
 	}
 
@@ -451,6 +479,17 @@ func ToAnthropicResponseFromCustom(resp *GenerateContentResponse, model string) 
 		anthropicResp.Usage = types.AnthropicUsage{
 			InputTokens:  int(resp.UsageMetadata.PromptTokenCount),
 			OutputTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+		}
+	}
+
+	// Ensure we never return empty content
+	if len(anthropicResp.Content) == 0 {
+		anthropicResp.Content = append(anthropicResp.Content, types.AnthropicContentBlock{
+			Type: types.ContentTypeText,
+			Text: "[Gemini: Empty Response]",
+		})
+		if anthropicResp.StopReason == "" {
+			anthropicResp.StopReason = types.StopReasonEndTurn
 		}
 	}
 

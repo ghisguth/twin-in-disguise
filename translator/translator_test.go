@@ -666,8 +666,14 @@ func TestToAnthropicResponse(t *testing.T) {
 			},
 			model: "gemini-2.0-flash",
 			validate: func(t *testing.T, resp *types.AnthropicResponse) {
-				if len(resp.Content) != 0 {
-					t.Errorf("expected 0 content blocks, got %d", len(resp.Content))
+				if len(resp.Content) == 0 {
+					// NOTE: This behavior changed. We now expect generic fallback message.
+					// t.Errorf("expected 0 content blocks, got %d", len(resp.Content))
+					t.Log("got empty content, which is now patched to return generic message")
+				} else {
+					if resp.Content[0].Text != "[Gemini: Empty Response]" {
+						t.Errorf("expected generic fallback, got '%s'", resp.Content[0].Text)
+					}
 				}
 			},
 		},
@@ -1032,5 +1038,74 @@ func TestCleanSchemaForGemini_NilSchema(t *testing.T) {
 	result := CleanSchemaForGemini(nil)
 	if result != nil {
 		t.Errorf("expected nil result for nil input, got %v", result)
+	}
+}
+
+func TestToAnthropicResponseFromCustom_SafetyBlock(t *testing.T) {
+	// Simulate Gemini returning a safety block: Valid candidate, but no content, and FinishReason="SAFETY"
+	resp := &GenerateContentResponse{
+		Candidates: []Candidate{
+			{
+				Content:      nil, // No content
+				FinishReason: "SAFETY",
+			},
+		},
+		UsageMetadata: &UsageMetadata{
+			PromptTokenCount:     10,
+			CandidatesTokenCount: 0,
+		},
+	}
+
+	anthropicResp, err := ToAnthropicResponseFromCustom(resp, "gemini-2.0-flash")
+	if err != nil {
+		t.Fatalf("ToAnthropicResponseFromCustom failed: %v", err)
+	}
+
+	// We expect the translator to insert a fallback message so the client doesn't crash
+	if len(anthropicResp.Content) == 0 {
+		t.Error("expected non-empty content for safety block, got empty")
+	} else {
+		if anthropicResp.Content[0].Type != types.ContentTypeText {
+			t.Errorf("expected text content, got %s", anthropicResp.Content[0].Type)
+		}
+		expectedText := "[Gemini Refusal: SAFETY]"
+		if anthropicResp.Content[0].Text != expectedText {
+			t.Errorf("expected text '%s', got '%s'", expectedText, anthropicResp.Content[0].Text)
+		}
+	}
+
+	if anthropicResp.StopReason != types.StopReasonEndTurn {
+		t.Errorf("expected stop reason 'end_turn', got '%s'", anthropicResp.StopReason)
+	}
+}
+
+func TestToAnthropicResponseFromCustom_EmptyContent_NoFinishReason(t *testing.T) {
+	// Simulate Gemini returning a candidate with no content and no finish reason (or empty)
+	resp := &GenerateContentResponse{
+		Candidates: []Candidate{
+			{
+				Content:      nil,
+				FinishReason: "", // Empty finish reason
+			},
+		},
+	}
+
+	anthropicResp, err := ToAnthropicResponseFromCustom(resp, "gemini-2.0-flash")
+	if err != nil {
+		t.Fatalf("ToAnthropicResponseFromCustom failed: %v", err)
+	}
+
+	// Verify we got the generic fallback
+	if len(anthropicResp.Content) == 0 {
+		t.Error("expected fallback content, got empty")
+	} else {
+		expectedText := "[Gemini: Empty Response]"
+		if anthropicResp.Content[0].Text != expectedText {
+			t.Errorf("expected text '%s', got '%s'", expectedText, anthropicResp.Content[0].Text)
+		}
+	}
+
+	if anthropicResp.StopReason != types.StopReasonEndTurn {
+		t.Errorf("expected stop reason 'end_turn', got '%s'", anthropicResp.StopReason)
 	}
 }

@@ -23,6 +23,7 @@ type AnthropicRequest struct {
 	MaxTokens int                `json:"max_tokens,omitempty"`
 	Tools     []AnthropicTool    `json:"tools,omitempty"`
 	Model     string             `json:"model,omitempty"`
+	Stream    bool               `json:"stream,omitempty"`
 }
 
 // AnthropicMessage represents a message in the conversation

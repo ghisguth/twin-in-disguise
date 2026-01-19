@@ -45,6 +45,7 @@ const (
 	SchemaFieldItems                = "items"
 	SchemaFieldDollarSchema         = "$schema"
 	SchemaFieldAdditionalProperties = "additionalProperties"
+	SchemaFieldPropertyNames        = "propertyNames"
 	SchemaFieldExclusiveMinimum     = "exclusiveMinimum"
 	SchemaFieldExclusiveMaximum     = "exclusiveMaximum"
 )
